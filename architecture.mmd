@@ -1,0 +1,78 @@
+flowchart TD
+  subgraph Client_Tier["Client and Ingestion Tier"]
+    launch_app["Launch Web / Mobile App"]
+    sign_up_page["Sign Up Page"]
+    login_page["Login Page"]
+    status_tracker["Status Tracker UI"]
+    admin_portal["Admin Portal UI"]
+  end
+  subgraph Gateway_Tier["API Gateway and Security Tier"]
+    api_gw["FastAPI API Gateway"]
+    auth_srv["Auth & Security Guard"]
+  end
+  subgraph Service_Tier["Application and Domain Services Tier"]
+    auth_decision["Has Account?"]
+    auth_gateway["Authentication Gateway"]
+    admin_auth_gateway["Admin Authentication Gateway"]
+    course_service["Course Service"]
+    eligibility_check["Eligibility Check Service"]
+    application_service["Application Service"]
+    document_service["Document Service"]
+    payment_service["Payment Service"]
+    payment_gateway["External Payment Gateway"]
+    notification_service["Notification Service"]
+    email_service["Email Service Provider"]
+    admin_service["Admin Service"]
+    merit_evaluation_service["Merit Evaluation Service"]
+    seat_allocation_service["Seat Allocation Service"]
+    report_service["Report Service"]
+  end
+  subgraph Data_Tier["Persistence and Caching Tier"]
+    user_db[("User Database")]
+    course_db[("Course Database")]
+    application_db[("Application Database")]
+    document_storage[("Document Store")]
+    payment_db[("Payment Database")]
+    audit_log_db[("Audit Log Database")]
+  end
+  launch_app -->|"User Action: Check session cookie/JWT"| auth_decision
+  auth_decision -->|"No: Redirect to registration"| sign_up_page
+  sign_up_page -->|"HTTPS POST: Submit registration data"| auth_gateway
+  auth_gateway -->|"SQL: Insert new user record"| user_db
+  auth_gateway -->|"HTTPS Response: Return JWT and welcome"| launch_app
+  auth_decision -->|"Yes: Redirect to login"| login_page
+  login_page -->|"HTTPS POST: Submit credentials"| auth_gateway
+  auth_gateway -->|"SQL: Validate password hash"| user_db
+  auth_gateway -->|"HTTPS Response: Return JWT"| launch_app
+  launch_app -->|"HTTPS GET: Fetch available courses"| course_service
+  course_service -->|"SQL: Read course catalog"| course_db
+  launch_app -->|"HTTPS POST: Check eligibility for selected co"| eligibility_check
+  eligibility_check -->|"SQL: Read eligibility rules"| course_db
+  eligibility_check -->|"HTTPS Response: Eligibility result"| launch_app
+  launch_app -->|"HTTPS POST: Save application draft"| application_service
+  application_service -->|"SQL: Insert/Update application record"| application_db
+  launch_app -->|"HTTPS POST: Upload required documents"| document_service
+  document_service -->|"SQL: Store document metadata and binary"| document_storage
+  launch_app -->|"HTTPS POST: Submit completed application"| application_service
+  application_service -->|"SQL: Mark application as submitted"| application_db
+  launch_app -->|"HTTPS POST: Initiate fee payment"| payment_service
+  payment_service -->|"Redirect/HTTPS: Send payment request"| payment_gateway
+  payment_gateway -->|"Webhook HTTPS: Payment success/failure callba"| payment_service
+  payment_service -->|"SQL: Record transaction status"| payment_db
+  launch_app -->|"User Action: Request current application stat"| status_tracker
+  status_tracker -->|"SQL: Read status field"| application_db
+  launch_app -->|"HTTPS POST: Trigger email/SMS notifications"| notification_service
+  notification_service -->|"SMTP/HTTPS: Send notification messages"| email_service
+  admin_portal -->|"HTTPS POST: Admin login credentials"| admin_auth_gateway
+  admin_auth_gateway -->|"SQL: Validate admin user and role"| user_db
+  admin_portal -->|"HTTPS GET/POST: CRUD operations for courses, "| admin_service
+  admin_service -->|"SQL: Create/Update/Delete course records"| course_db
+  admin_portal -->|"HTTPS GET/POST: Request document verification"| admin_service
+  admin_service -->|"HTTPS POST: Mark document as verified or requ"| document_service
+  admin_portal -->|"HTTPS POST: Run merit calculation"| merit_evaluation_service
+  merit_evaluation_service -->|"SQL: Update merit scores"| application_db
+  admin_portal -->|"HTTPS POST: Allocate seats based on merit"| seat_allocation_service
+  seat_allocation_service -->|"SQL: Assign seat numbers and status"| application_db
+  admin_portal -->|"HTTPS GET: Generate admission reports"| report_service
+  report_service -->|"SQL: Write report data and audit entries"| audit_log_db
+  admin_service -->|"SQL: Log admin actions"| audit_log_db
